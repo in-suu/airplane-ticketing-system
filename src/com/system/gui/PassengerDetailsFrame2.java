@@ -106,8 +106,7 @@ public class PassengerDetailsFrame2 extends JFrame {
                 JOptionPane.showMessageDialog(null, "Please enter passenger name!", "Error", JOptionPane.ERROR_MESSAGE);
             } else {
                 JOptionPane.showMessageDialog(null, "Booking details saved for " + txtName.getText() + "!");
-                // Dito mo i-oopen yung BillingFrame nina Member 4/5 bukas
+       
             }
-        });
     }
 }
