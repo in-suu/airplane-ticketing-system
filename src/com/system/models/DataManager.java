@@ -5,7 +5,6 @@ import java.util.ArrayList;
 public class DataManager {
     // Shared List for Bookings (Used by Member 4 & 5 later)
     public static ArrayList<Passenger> currentBookings = new ArrayList<>();
- // Sa DataManager.java, idagdag mo 'to:
     public static Object[] selectedFlightData;
     
     // UI Branding Constants
