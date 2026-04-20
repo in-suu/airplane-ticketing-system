@@ -8,13 +8,10 @@ public class Passenger {
     private double baggageWeight;
     private boolean hasInsurance;
 
-    // Constructor: Para madaling gawan ng object mamaya
     public Passenger(String name, int age) {
         this.name = name;
         this.age = age;
     }
-
-    // Getters and Setters: Para ma-access ang data nang safe
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
