@@ -46,7 +46,6 @@ public class FlightViewFrame extends JFrame {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         
-        // Mock Data for Demo
         model.addRow(new Object[]{"EP-01", "Manila to Japan", "08:00 AM", "01:00 PM", "P12,000"});
         model.addRow(new Object[]{"EP-02", "Manila to Korea", "10:00 AM", "02:00 PM", "P10,500"});
 
@@ -55,7 +54,6 @@ public class FlightViewFrame extends JFrame {
         tbl.getTableHeader().setBackground(DataManager.MIDNIGHT_BLUE);
         tbl.getTableHeader().setForeground(Color.WHITE);
         
-        // --- FILTER LOGIC ---
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
         tbl.setRowSorter(sorter);
         txtSearch.addKeyListener(new KeyAdapter() {
@@ -78,19 +76,13 @@ public class FlightViewFrame extends JFrame {
         btnBook.addActionListener(e -> {
             int row = tbl.getSelectedRow();
             if (row != -1) {
-                // Kunin ang data mula sa model, hindi sa view (para tama kahit naka-filter)
                 int modelRow = tbl.convertRowIndexToModel(row);
-                
                 DataManager.selectedFlightData = new Object[] {
-                    model.getValueAt(modelRow, 0), // ID
-                    model.getValueAt(modelRow, 1), // Destination
-                    model.getValueAt(modelRow, 4)  // Price
+                    model.getValueAt(modelRow, 0),
+                    model.getValueAt(modelRow, 1),
+                    model.getValueAt(modelRow, 4)
                 };
-                
-                // DITO MO I-LILINK YUNG NEXT FRAME NI MEMBER 4
                 JOptionPane.showMessageDialog(null, "Flight Selected: " + DataManager.selectedFlightData[1]);
-                // new PassengerDetailsFrame().setVisible(true); 
-                // this.dispose();
             } else {
                 JOptionPane.showMessageDialog(null, "Please select a flight first!", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -99,7 +91,18 @@ public class FlightViewFrame extends JFrame {
         JButton btnBack = new JButton("BACK");
         btnBack.setBounds(30, 430, 100, 45);
         getContentPane().add(btnBack);
-
         btnBack.addActionListener(e -> { new WelcomeFrame().setVisible(true); this.dispose(); });
+
+        // --- BACKGROUND IMAGE ---
+        try {
+            // FIX: Inalis ang /src/ at idinagdag ang /images/ sa path
+            ImageIcon bgIcon = new ImageIcon(getClass().getResource("/com/system/images/borrow(1).jpg"));
+            Image img = bgIcon.getImage().getScaledInstance(850, 550, Image.SCALE_SMOOTH);
+            JLabel lblBackground = new JLabel(new ImageIcon(img));
+            lblBackground.setBounds(0, 0, 850, 550);
+            getContentPane().add(lblBackground);
+        } catch (Exception e) {
+            System.out.println("Image Error: " + e.getMessage());
+        }
     }
 }
