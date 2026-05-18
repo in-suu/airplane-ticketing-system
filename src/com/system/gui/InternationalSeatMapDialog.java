@@ -49,10 +49,19 @@ public class InternationalSeatMapDialog extends JDialog {
         this(null, false, "None");
     }
 
+    private java.util.ArrayList<String> occupiedSeats = new java.util.ArrayList<>();
+
     public InternationalSeatMapDialog(Frame owner, boolean isBusinessMode, String currentSeat) {
         super(owner, "Seats Availability Matrix", true);
         this.isBusinessMode = isBusinessMode;
         this.tempSelected[0] = currentSeat;
+        
+        // Fetch occupied seats dynamically from DataManager using active selected flight ID!
+        if (DataManager.selectedFlightData != null) {
+            String flightId = DataManager.selectedFlightData[0].toString();
+            this.occupiedSeats = DataManager.getOccupiedSeats(flightId);
+        }
+        
         initComponents();
         initSeatStyles();
     }
@@ -177,10 +186,6 @@ public class InternationalSeatMapDialog extends JDialog {
         s4F = new JButton(); pnlRow4.add(s4F);
         lblRow4 = new JLabel("4", SwingConstants.CENTER);
         lblRow4.setFont(new Font("Segoe UI Semibold", Font.BOLD, 11));
-        lblRow4.setOpaque(true);
-        lblRow4.setBackground(new Color(255, 245, 230));
-        lblRow4.setForeground(new Color(220, 110, 0));
-        lblRow4.setBorder(BorderFactory.createLineBorder(new Color(220, 110, 0), 1));
         pnlRow4.add(lblRow4);
         s4G = new JButton(); pnlRow4.add(s4G);
         s4H = new JButton(); pnlRow4.add(s4H);
@@ -199,10 +204,6 @@ public class InternationalSeatMapDialog extends JDialog {
         s5F = new JButton(); pnlRow5.add(s5F);
         lblRow5 = new JLabel("5", SwingConstants.CENTER);
         lblRow5.setFont(new Font("Segoe UI Semibold", Font.BOLD, 11));
-        lblRow5.setOpaque(true);
-        lblRow5.setBackground(new Color(255, 245, 230));
-        lblRow5.setForeground(new Color(220, 110, 0));
-        lblRow5.setBorder(BorderFactory.createLineBorder(new Color(220, 110, 0), 1));
         pnlRow5.add(lblRow5);
         s5G = new JButton(); pnlRow5.add(s5G);
         s5H = new JButton(); pnlRow5.add(s5H);
@@ -337,6 +338,36 @@ public class InternationalSeatMapDialog extends JDialog {
 
     private void configureSeat(JButton btn, final int row, final char col) {
         final String seatID = row + String.valueOf(col);
+        
+        int capacity = 72;
+        if (DataManager.selectedFlightData != null && DataManager.selectedFlightData.length > 10) {
+            try {
+                capacity = Integer.parseInt(DataManager.selectedFlightData[10].toString());
+            } catch (Exception ex) {}
+        }
+        
+        int colIndex = 0;
+        switch (col) {
+            case 'A': colIndex = 0; break;
+            case 'B': colIndex = 1; break;
+            case 'C': colIndex = 2; break;
+            case 'D': colIndex = 3; break;
+            case 'E': colIndex = 4; break;
+            case 'F': colIndex = 5; break;
+            case 'G': colIndex = 6; break;
+            case 'H': colIndex = 7; break;
+            case 'K': colIndex = 8; break;
+        }
+        int linearIndex = (row - 1) * 9 + colIndex + 1;
+        boolean outOfCapacity = linearIndex > capacity;
+
+        if (outOfCapacity) {
+            btn.setVisible(false);
+            return;
+        } else {
+            btn.setVisible(true);
+        }
+
         boolean occupied    = isOccupied(row, col);
         boolean isBizSeat   = (row <= 2);
         boolean wrongClass  = (isBusinessMode && !isBizSeat) || (!isBusinessMode && isBizSeat);
@@ -385,8 +416,9 @@ public class InternationalSeatMapDialog extends JDialog {
     }
 
     private boolean isOccupied(int row, char col) {
-        return (row <= 4 && (col == 'A' || col == 'B' || col == 'K'))
-            || (row >= 5 && (col == 'D' || col == 'E' || col == 'F'));
+        String seatId1 = row + String.valueOf(col);
+        String seatId2 = String.format("%02d%c", row, col);
+        return occupiedSeats.contains(seatId1.toUpperCase()) || occupiedSeats.contains(seatId2.toUpperCase());
     }
 
     private void addLegendItem(JPanel parent, String text, Color color, boolean filled) {

@@ -32,6 +32,8 @@ public class FlightViewFrame extends JPanel {
     private JComboBox<String> cbFlightStatus;
     private JComboBox<String> cbFlightCategory;
     private JTextField        txtSearch;
+    private JLabel            lblDate;
+    private com.toedter.calendar.JDateChooser dcDateFilter;
 
     private JTable            tblFlights;
     private DefaultTableModel tableModel;
@@ -122,27 +124,43 @@ public class FlightViewFrame extends JPanel {
 
         // ── Filters ──────────────────────────────────────────────────────────
         cbFlightStatus = new JComboBox<>(new String[]{"All Statuses", "Available", "Delayed", "Cancelled", "Fully Booked"});
-        cbFlightStatus.setBounds(40, 80, 200, 40);
+        cbFlightStatus.setBounds(40, 80, 150, 40);
         cbFlightStatus.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbFlightStatus.setBackground(Color.WHITE);
         cbFlightStatus.setFocusable(false);
         pnlMain.add(cbFlightStatus);
 
         cbFlightCategory = new JComboBox<>(new String[]{"All Flights", "Domestic", "International"});
-        cbFlightCategory.setBounds(260, 80, 180, 40);
+        cbFlightCategory.setBounds(200, 80, 140, 40);
         cbFlightCategory.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbFlightCategory.setBackground(Color.WHITE);
         cbFlightCategory.setFocusable(false);
         pnlMain.add(cbFlightCategory);
 
+        lblDate = new JLabel("Date:");
+        lblDate.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 12));
+        lblDate.setForeground(SUBTLE_GRAY);
+        lblDate.setBounds(350, 80, 40, 40);
+        pnlMain.add(lblDate);
+
+        dcDateFilter = new com.toedter.calendar.JDateChooser();
+        dcDateFilter.setBounds(390, 80, 140, 40);
+        dcDateFilter.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        dcDateFilter.setBackground(Color.WHITE);
+        dcDateFilter.setMinSelectableDate(new java.util.Date());
+        java.util.Calendar maxCal = java.util.Calendar.getInstance();
+        maxCal.add(java.util.Calendar.MONTH, 3);
+        dcDateFilter.setMaxSelectableDate(maxCal.getTime());
+        pnlMain.add(dcDateFilter);
+
         lblSearch = new JLabel("Search Keyword:");
         lblSearch.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 12));
         lblSearch.setForeground(SUBTLE_GRAY);
-        lblSearch.setBounds(550, 80, 110, 40);  // pw(890) - 340
+        lblSearch.setBounds(540, 80, 90, 40);
         pnlMain.add(lblSearch);
 
         txtSearch = new JTextField();
-        txtSearch.setBounds(660, 80, 200, 40);  // pw(890) - 230
+        txtSearch.setBounds(630, 80, 220, 40);
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         txtSearch.setBorder(BorderFactory.createEmptyBorder(2, 12, 2, 12));
         pnlMain.add(txtSearch);
@@ -236,8 +254,15 @@ public class FlightViewFrame extends JPanel {
                 pnlMain.setBounds(40, 40, w - 80, h - 80);
                 int pw = pnlMain.getWidth();
                 int ph = pnlMain.getHeight();
-                lblSearch.setBounds(pw - 340, 80, 110, 40);
-                txtSearch.setBounds(pw - 230, 80, 200, 40);
+                
+                cbFlightStatus.setBounds(40, 80, 150, 40);
+                cbFlightCategory.setBounds(200, 80, 140, 40);
+                
+                lblDate.setBounds(pw - 540, 80, 40, 40);
+                dcDateFilter.setBounds(pw - 500, 80, 140, 40);
+                lblSearch.setBounds(pw - 350, 80, 90, 40);
+                txtSearch.setBounds(pw - 260, 80, 220, 40);
+                
                 scrollPane.setBounds(40, 140, pw - 80, ph - 290);
                 pnlSelectedStrip.setBounds(40, ph - 130, pw - 80, 40);
                 lblSelectedFlight.setBounds(15, 0, pw - 110, 40);
@@ -258,6 +283,12 @@ public class FlightViewFrame extends JPanel {
         });
         cbFlightCategory.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) { loadFlightRecordsData(); }
+        });
+        dcDateFilter.addPropertyChangeListener("date", new java.beans.PropertyChangeListener() {
+            @Override
+            public void propertyChange(java.beans.PropertyChangeEvent evt) {
+                loadFlightRecordsData();
+            }
         });
         txtSearch.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) { loadFlightRecordsData(); }
@@ -288,7 +319,7 @@ public class FlightViewFrame extends JPanel {
 
                 if (selectedRow != -1) {
                     String flightId = tblFlights.getValueAt(selectedRow, 0).toString();
-                    for (Object[] f : DataManager.getMockFlightsDB()) {
+                    for (Object[] f : DataManager.getFlightsDB()) {
                         if (f[0].toString().equals(flightId)) { rawFlight = f; break; }
                     }
                     if (rawFlight != null) {
@@ -363,7 +394,12 @@ public class FlightViewFrame extends JPanel {
         String typeFilter   = cbFlightCategory.getSelectedItem().toString().toLowerCase();
         String keyword      = txtSearch.getText().trim().toLowerCase();
 
-        for (Object[] flight : DataManager.getMockFlightsDB()) {
+        String selectedDateStr = "";
+        if (dcDateFilter != null && dcDateFilter.getDate() != null) {
+            selectedDateStr = new java.text.SimpleDateFormat("dd-MM-yy").format(dcDateFilter.getDate());
+        }
+
+        for (Object[] flight : DataManager.getFlightsDB()) {
             String fId      = flight[0].toString().toLowerCase();
             String fDate    = flight[1].toString().toLowerCase();
             String fOrigin  = flight[2].toString().toLowerCase();
@@ -374,6 +410,7 @@ public class FlightViewFrame extends JPanel {
 
             boolean statusMatch  = statusFilter.equals("all statuses") || fStatus.contains(statusFilter.replace(" flights", ""));
             boolean typeMatch    = typeFilter.equals("all flights")     || fType.equalsIgnoreCase(typeFilter);
+            boolean dateMatch    = selectedDateStr.isEmpty() || fDate.equalsIgnoreCase(selectedDateStr);
 
             String corpus = fId + " " + fDest + " " + fDate + " " + fOrigin + " " + fAirline;
             if (fDest.equals("ceb") || fOrigin.equals("ceb")) corpus += " cebu";
@@ -389,9 +426,15 @@ public class FlightViewFrame extends JPanel {
 
             boolean keywordMatch = keyword.isEmpty() || corpus.contains(keyword);
 
-            if (statusMatch && typeMatch && keywordMatch) {
+            if (statusMatch && typeMatch && keywordMatch && dateMatch) {
                 tableModel.addRow(new Object[]{
-                    flight[0], flight[2], flight[3], flight[1], flight[4], flight[10], flight[5]
+                    flight[0], 
+                    DataManager.getAirportFullName(flight[2].toString()), 
+                    DataManager.getAirportFullName(flight[3].toString()), 
+                    flight[1], 
+                    flight[4], 
+                    flight[10], 
+                    flight[5]
                 });
             }
         }

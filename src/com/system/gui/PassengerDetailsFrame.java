@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Date;
 import com.toedter.calendar.JDateChooser;
 
 public class PassengerDetailsFrame extends JPanel {
@@ -23,6 +24,7 @@ public class PassengerDetailsFrame extends JPanel {
     private RoundedTextField txtFlightSearch;
     private JDateChooser dateDeparture, dateReturn;
     private JLabel lblDeparture, lblReturn;
+    private JPopupMenu suggestPopup;
 
     // ── Sidebar & panels (instance fields for WindowBuilder) ─────────────────
     private SidebarPanel    pnlSidebar;
@@ -120,19 +122,20 @@ public class PassengerDetailsFrame extends JPanel {
 
         lblTitle = new JLabel("Passenger Registration & Booking");
         lblTitle.setForeground(TEXT_WHITE);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setBounds(40, 30, 550, 30);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setBounds(60, 30, 480, 30);
         pnlMain.add(lblTitle);
 
         lblSummary = new JLabel("Flight: None Selected | Base Price: Awaiting Verification");
         lblSummary.setFont(new Font("Segoe UI Semibold", Font.ITALIC, 13));
         lblSummary.setForeground(SUBTLE_GRAY);
-        lblSummary.setBounds(25, 55, 550, 20);
+        lblSummary.setBounds(45, 55, 480, 20);
         pnlMain.add(lblSummary);
 
         // --- UNIFIED MAIN FORM CONTENT PANEL ---
-        pnlForm = new JPanel(null);
-        pnlForm.setBounds(0, 80, 850, 570);
+        pnlForm = new JPanel();
+        pnlForm.setLayout(null);
+        pnlForm.setBounds(20, 80, 850, 570);
         pnlForm.setOpaque(false);
         pnlMain.add(pnlForm);
 
@@ -149,87 +152,84 @@ public class PassengerDetailsFrame extends JPanel {
                 int formX = Math.max(0, (pw - 850) / 2); // Center the form block
                 
                 pnlForm.setBounds(formX, 80, 850, 570);
-                lblTitle.setBounds(formX + 40, 30, 550, 30);
-                lblSummary.setBounds(formX + 25, 55, 550, 20);
+                lblTitle.setBounds(formX + 40, 30, 480, 30);
+                lblSummary.setBounds(formX + 25, 55, 480, 20);
+                // Status card stays in pnlMain header, right side
+                lblFlightStatusCard.setBounds(formX + 540, 20, 290, 55);
             }
         });
 
-        JLabel lblSearchTitle = new JLabel("Search Flight (Place / ID) *:");
-        styleFormLabel(lblSearchTitle, 40, 5);
+        JLabel lblSearchTitle = new JLabel("Search Flight *:");
+        lblSearchTitle.setBounds(40, 5, 250, 20);
+        lblSearchTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblSearchTitle.setForeground(TEXT_WHITE);
         pnlForm.add(lblSearchTitle);
 
         txtFlightSearch = new RoundedTextField();
-        txtFlightSearch.setBounds(40, 30, 120, 40);
+        txtFlightSearch.setBounds(40, 30, 310, 40);
         pnlForm.add(txtFlightSearch);
 
-        JPopupMenu suggestPopup = new JPopupMenu();
+        suggestPopup = new JPopupMenu();
         suggestPopup.setFocusable(false);
-        txtFlightSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void updateSuggestions() {
-                SwingUtilities.invokeLater(() -> {
-                    if (!txtFlightSearch.isEnabled() || !txtFlightSearch.isFocusOwner()) return;
-                    String query = txtFlightSearch.getText().trim().toLowerCase();
-                    suggestPopup.removeAll();
-                    if (query.isEmpty()) {
-                        suggestPopup.setVisible(false);
-                        return;
-                    }
-                    Object[][] db = DataManager.getMockFlightsDB();
-                    int matchCount = 0;
-                    for (Object[] row : db) {
-                        String id = row[0].toString().toLowerCase();
-                        String date = row[1].toString().toLowerCase();
-                        String origin = row[2].toString().toLowerCase();
-                        String dest = row[3].toString().toLowerCase();
-                        
-                        String searchCorpus = id + " " + dest + " " + date + " " + origin;
-                        if (dest.equals("ceb") || origin.equals("ceb")) searchCorpus += " cebu";
-                        if (dest.equals("mnl") || origin.equals("mnl")) searchCorpus += " manila";
-                        if (dest.equals("dvo") || origin.equals("dvo")) searchCorpus += " davao";
-                        if (dest.equals("pps") || origin.equals("pps")) searchCorpus += " puerto princesa";
-                        if (dest.equals("mph") || origin.equals("mph")) searchCorpus += " caticlan boracay";
-                        if (dest.equals("ilo") || origin.equals("ilo")) searchCorpus += " iloilo";
-                        if (dest.equals("nrt") || origin.equals("nrt")) searchCorpus += " tokyo narita japan";
-                        if (dest.equals("sin") || origin.equals("sin")) searchCorpus += " singapore";
-                        if (dest.equals("lax") || origin.equals("lax")) searchCorpus += " los angeles usa";
-                        if (dest.equals("lhr") || origin.equals("lhr")) searchCorpus += " london uk";
-
-                        if (searchCorpus.contains(query)) {
-                            JMenuItem item = new JMenuItem(row[0] + " | " + row[2] + " \u2192 " + row[3]);
-                            item.addActionListener(e -> {
-                                txtFlightSearch.setText(row[0].toString());
-                                suggestPopup.setVisible(false);
-                                if (btnVerify != null) btnVerify.doClick(); 
-                            });
-                            suggestPopup.add(item);
-                            matchCount++;
-                        }
-                    }
-                    if (matchCount > 0) {
-                        if (!suggestPopup.isVisible()) {
-                            suggestPopup.show(txtFlightSearch, 0, txtFlightSearch.getHeight());
-                        } else {
-                            suggestPopup.pack(); 
-                        }
-                        txtFlightSearch.requestFocus();
-                    } else {
-                        suggestPopup.setVisible(false);
-                    }
-                });
+        
+        txtFlightSearch.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                updateSuggestionsForSearch();
             }
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { updateSuggestions(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { updateSuggestions(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { updateSuggestions(); }
+        });
+
+        txtFlightSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { updateSuggestionsForSearch(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { updateSuggestionsForSearch(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { updateSuggestionsForSearch(); }
         });
 
 
 
+        lblDeparture = new JLabel("Departure Date *:");
+        lblDeparture.setBounds(360, 5, 250, 20);
+        lblDeparture.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblDeparture.setForeground(TEXT_WHITE);
+        lblDeparture.setVisible(true);
+        pnlForm.add(lblDeparture);
+
+        dateDeparture = new JDateChooser();
+        dateDeparture.setBounds(360, 30, 130, 40);
+        dateDeparture.setMinSelectableDate(new java.util.Date()); // Enforce no past departure dates!
+        java.util.Calendar maxDepCal = java.util.Calendar.getInstance();
+        maxDepCal.add(java.util.Calendar.MONTH, 3);
+        dateDeparture.setMaxSelectableDate(maxDepCal.getTime());
+        dateDeparture.setVisible(true);
+        pnlForm.add(dateDeparture);
+
+        dateDeparture.addPropertyChangeListener("date", new java.beans.PropertyChangeListener() {
+            @Override
+            public void propertyChange(java.beans.PropertyChangeEvent evt) {
+                if (dateDeparture.getDate() != null) {
+                    java.util.Calendar cal = java.util.Calendar.getInstance();
+                    cal.setTime(dateDeparture.getDate());
+                    cal.add(java.util.Calendar.DATE, 1);
+                    dateReturn.setMinSelectableDate(cal.getTime());
+                    if (dateReturn.getDate() != null && dateReturn.getDate().before(cal.getTime())) {
+                        dateReturn.setDate(null);
+                    }
+                } else {
+                    dateReturn.setMinSelectableDate(new java.util.Date()); // Fallback to today!
+                }
+                updateSuggestionsForSearch();
+                updateLivePricingTotal();
+            }
+        });
+
         JLabel lblFlightType = new JLabel("Flight Type *:");
-        styleFormLabel(lblFlightType, 170, 5);
+        lblFlightType.setBounds(500, 5, 250, 20);
+        lblFlightType.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblFlightType.setForeground(TEXT_WHITE);
         pnlForm.add(lblFlightType);
 
         cbFlightType = new JComboBox<>(new String[]{"Domestic", "International"});
-        cbFlightType.setBounds(170, 30, 110, 40);
+        cbFlightType.setBounds(500, 30, 110, 40);
         cbFlightType.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbFlightType.setBackground(Color.WHITE);
         cbFlightType.setFocusable(false);
@@ -238,6 +238,9 @@ public class PassengerDetailsFrame extends JPanel {
         cbFlightType.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                if (txtFlightSearch.isEnabled()) {
+                    txtFlightSearch.setText("");
+                }
                 boolean isIntl = cbFlightType.getSelectedItem().toString().equals("International");
                 if (lblPassport != null) lblPassport.setVisible(isIntl);
                 if (txtPassport != null) txtPassport.setVisible(isIntl);
@@ -257,6 +260,8 @@ public class PassengerDetailsFrame extends JPanel {
                     if (lblDiscountID != null) lblDiscountID.setLocation(40, 380);
                     if (txtDiscountID != null) txtDiscountID.setLocation(40, 400);
                 }
+                pnlForm.revalidate();
+                pnlForm.repaint();
                 
                 if (cbDiscount != null) {
                     Object currentSelection = cbDiscount.getSelectedItem();
@@ -280,33 +285,35 @@ public class PassengerDetailsFrame extends JPanel {
             }
         });
 
-        JLabel lblCountTitle = new JLabel("Pax Count *:");
-        styleFormLabel(lblCountTitle, 290, 5);
+        JLabel lblCountTitle = new JLabel("Pax *:");
+        lblCountTitle.setBounds(620, 5, 250, 20);
+        lblCountTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblCountTitle.setForeground(TEXT_WHITE);
         pnlForm.add(lblCountTitle);
 
         txtPassengerCountInput = new RoundedTextField();
-        txtPassengerCountInput.setBounds(290, 30, 40, 40);
+        txtPassengerCountInput.setBounds(620, 30, 40, 40);
         txtPassengerCountInput.setText("1");
         pnlForm.add(txtPassengerCountInput);
 
         btnVerify = new ActionButton("VERIFY", Color.WHITE, REFINED_NAVY);
-        btnVerify.setBounds(340, 30, 65, 40);
+        btnVerify.setBounds(670, 30, 65, 40);
         btnVerify.setBorder(new LineBorder(new Color(200, 200, 200), 1));
         pnlForm.add(btnVerify);
 
         btnChangeFlight = new ActionButton("CHANGE", Color.WHITE, Color.DARK_GRAY);
-        btnChangeFlight.setBounds(415, 30, 65, 40);
+        btnChangeFlight.setBounds(745, 30, 65, 40);
         btnChangeFlight.setBorder(new LineBorder(new Color(200, 200, 200), 1));
         btnChangeFlight.setEnabled(false);
         pnlForm.add(btnChangeFlight);
 
-        lblFlightStatusCard = new JLabel("Awaiting localized validation input segment...", SwingConstants.CENTER);
-        lblFlightStatusCard.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 12));
-        lblFlightStatusCard.setBounds(490, 30, 320, 40);
+        lblFlightStatusCard = new JLabel("Awaiting verification...", SwingConstants.CENTER);
+        lblFlightStatusCard.setFont(new Font("Segoe UI Semibold", Font.BOLD, 12));
+        lblFlightStatusCard.setBounds(560, 20, 290, 55);
         lblFlightStatusCard.setOpaque(true);
         lblFlightStatusCard.setBackground(SOFT_CARD_NAVY);
         lblFlightStatusCard.setForeground(SUBTLE_GRAY);
-        pnlForm.add(lblFlightStatusCard);
+        pnlMain.add(lblFlightStatusCard);
 
         JSeparator topSep = new JSeparator();
         topSep.setBounds(40, 90, 770, 2);
@@ -314,21 +321,27 @@ public class PassengerDetailsFrame extends JPanel {
 
         // --- ROW 1 (100) ---
         JLabel lbl1 = new JLabel("Full Name *:");
-        styleFormLabel(lbl1, 40, 100);
+        lbl1.setBounds(40, 100, 250, 20);
+        lbl1.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl1.setForeground(TEXT_WHITE);
         pnlForm.add(lbl1);
         txtName = new RoundedTextField();
         txtName.setBounds(40, 120, 365, 40);
         pnlForm.add(txtName);
 
         JLabel lblAge = new JLabel("Age *:");
-        styleFormLabel(lblAge, 445, 100);
+        lblAge.setBounds(445, 100, 250, 20);
+        lblAge.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblAge.setForeground(TEXT_WHITE);
         pnlForm.add(lblAge);
         txtAge = new RoundedTextField();
         txtAge.setBounds(445, 120, 120, 40);
         pnlForm.add(txtAge);
 
         JLabel lblNationality = new JLabel("Nationality *:");
-        styleFormLabel(lblNationality, 585, 100);
+        lblNationality.setBounds(585, 100, 250, 20);
+        lblNationality.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblNationality.setForeground(TEXT_WHITE);
         pnlForm.add(lblNationality);
         cbNationality = new JComboBox<>(new String[]{"Filipino", "Foreigner"});
         cbNationality.setBounds(585, 120, 225, 40);
@@ -341,14 +354,18 @@ public class PassengerDetailsFrame extends JPanel {
 
         // --- ROW 2 (170) ---
         JLabel lblContact = new JLabel("Contact Number *:");
-        styleFormLabel(lblContact, 40, 170);
+        lblContact.setBounds(40, 170, 250, 20);
+        lblContact.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblContact.setForeground(TEXT_WHITE);
         pnlForm.add(lblContact);
         txtContact = new RoundedTextField();
         txtContact.setBounds(40, 190, 365, 40);
         pnlForm.add(txtContact);
 
         JLabel lblTrip = new JLabel("Trip Type *:");
-        styleFormLabel(lblTrip, 445, 170);
+        lblTrip.setBounds(445, 170, 250, 20);
+        lblTrip.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTrip.setForeground(TEXT_WHITE);
         pnlForm.add(lblTrip);
         cbTripType = new JComboBox<>(new String[]{"One-Way", "Round Trip"});
         cbTripType.setBounds(445, 190, 110, 40);
@@ -357,23 +374,19 @@ public class PassengerDetailsFrame extends JPanel {
         cbTripType.setFocusable(false);
         pnlForm.add(cbTripType);
 
-        lblDeparture = new JLabel("Departure Date *:");
-        styleFormLabel(lblDeparture, 565, 170);
-        lblDeparture.setVisible(true);
-        pnlForm.add(lblDeparture);
-
-        dateDeparture = new JDateChooser();
-        dateDeparture.setBounds(565, 190, 245, 40);
-        dateDeparture.setVisible(true);
-        pnlForm.add(dateDeparture);
-
         lblReturn = new JLabel("Return Date *:");
-        styleFormLabel(lblReturn, 690, 170);
+        lblReturn.setBounds(565, 170, 250, 20);
+        lblReturn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblReturn.setForeground(TEXT_WHITE);
         lblReturn.setVisible(false);
         pnlForm.add(lblReturn);
 
         dateReturn = new JDateChooser();
-        dateReturn.setBounds(690, 190, 120, 40);
+        dateReturn.setBounds(565, 190, 245, 40);
+        dateReturn.setMinSelectableDate(new java.util.Date()); // Enforce no past return dates!
+        java.util.Calendar maxRetCal = java.util.Calendar.getInstance();
+        maxRetCal.add(java.util.Calendar.MONTH, 3);
+        dateReturn.setMaxSelectableDate(maxRetCal.getTime());
         dateReturn.setVisible(false);
         pnlForm.add(dateReturn);
 
@@ -382,9 +395,14 @@ public class PassengerDetailsFrame extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 boolean isRoundTrip = cbTripType.getSelectedItem().toString().equals("Round Trip");
                 if (isRoundTrip) {
-                    dateDeparture.setBounds(565, 190, 115, 40);
-                    if (lblReturn != null) lblReturn.setVisible(true);
-                    if (dateReturn != null) dateReturn.setVisible(true);
+                    if (lblReturn != null) {
+                        lblReturn.setBounds(565, 170, 245, 20);
+                        lblReturn.setVisible(true);
+                    }
+                    if (dateReturn != null) {
+                        dateReturn.setBounds(565, 190, 245, 40);
+                        dateReturn.setVisible(true);
+                    }
                     if (btnSeatMap != null) {
                         btnSeatMap.setText("DEP SEAT");
                         btnSeatMap.setBounds(445, 400, 90, 40);
@@ -397,7 +415,6 @@ public class PassengerDetailsFrame extends JPanel {
                         lblReturnSeatNo.setText("R: " + (selectedReturnSeat.equals("None") ? "None" : selectedReturnSeat));
                     }
                 } else {
-                    dateDeparture.setBounds(565, 190, 245, 40);
                     if (lblReturn != null) lblReturn.setVisible(false);
                     if (dateReturn != null) dateReturn.setVisible(false);
                     if (btnSeatMap != null) {
@@ -413,8 +430,10 @@ public class PassengerDetailsFrame extends JPanel {
         });
 
         // --- ROW 3 (240) ---
-        lblPassport = new JLabel("Passport Number:");
-        styleFormLabel(lblPassport, 40, 240);
+        lblPassport = new JLabel("Passport Number *:");
+        lblPassport.setBounds(40, 240, 250, 20);
+        lblPassport.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblPassport.setForeground(TEXT_WHITE);
         lblPassport.setVisible(false);
         pnlForm.add(lblPassport);
         txtPassport = new RoundedTextField();
@@ -423,9 +442,11 @@ public class PassengerDetailsFrame extends JPanel {
         pnlForm.add(txtPassport);
 
         JLabel lblClass = new JLabel("Cabin Class Type *:");
-        styleFormLabel(lblClass, 445, 240);
+        lblClass.setBounds(445, 240, 250, 20);
+        lblClass.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblClass.setForeground(TEXT_WHITE);
         pnlForm.add(lblClass);
-        cbClassType = new JComboBox<>(new String[]{"Economy Class [Base]", "Business Class (+P4,500)"});
+        cbClassType = new JComboBox<>(new String[]{"Economy Class [Base]", "Business Class (+P4,500)", "First Class (+P9,000)"});
         cbClassType.setBounds(445, 260, 365, 40);
         cbClassType.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbClassType.setBackground(Color.WHITE);
@@ -436,13 +457,18 @@ public class PassengerDetailsFrame extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 selectedSeat = "None";
+                selectedReturnSeat = "None";
                 lblSeatNo.setText("Seat: None");
+                if (lblReturnSeatNo != null) lblReturnSeatNo.setText("R: None");
+                updateLivePricingTotal();
             }
         });
 
         // --- ROW 4 (310) ---
         lblSpecialCargo = new JLabel("Special Cargo Declaration *:");
-        styleFormLabel(lblSpecialCargo, 40, 240);
+        lblSpecialCargo.setBounds(40, 310, 250, 20);
+        lblSpecialCargo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblSpecialCargo.setForeground(TEXT_WHITE);
         pnlForm.add(lblSpecialCargo);
         cbSpecialCargo = new JComboBox<>(new String[]{
             "None [No Special Cargo]",
@@ -451,11 +477,14 @@ public class PassengerDetailsFrame extends JPanel {
             "Fragile / Valuable Items (+P1,200)",
             "Live Animals / Pets (+P2,500)"
         });
-        cbSpecialCargo.setBounds(40, 260, 365, 40);
+        cbSpecialCargo.setBounds(40, 330, 365, 40);
         cbSpecialCargo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbSpecialCargo.setBackground(Color.WHITE);
         cbSpecialCargo.setFocusable(false);
         pnlForm.add(cbSpecialCargo);
+        cbSpecialCargo.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { updateLivePricingTotal(); }
+        });
 
         JLabel lblBaggage = new JLabel("Additional Baggage Allowances *:");
         lblBaggage.setBounds(445, 310, 250, 20);
@@ -475,24 +504,32 @@ public class PassengerDetailsFrame extends JPanel {
         cbBaggage.setFocusable(false);
         pnlForm.add(cbBaggage);
 
+        cbBaggage.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { updateLivePricingTotal(); }
+        });
+
         lblDiscount = new JLabel("Applicable Discount *:");
-        styleFormLabel(lblDiscount, 40, 310);
+        lblDiscount.setBounds(40, 380, 250, 20);
+        lblDiscount.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblDiscount.setForeground(TEXT_WHITE);
         pnlForm.add(lblDiscount);
 
         cbDiscount = new JComboBox<>(new String[]{"NONE", "SENIOR CITIZEN (20%)", "PWD (20%)", "STUDENT (20%)"});
-        cbDiscount.setBounds(40, 330, 365, 40);
+        cbDiscount.setBounds(40, 400, 365, 40);
         cbDiscount.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         cbDiscount.setBackground(Color.WHITE);
         cbDiscount.setFocusable(false);
         pnlForm.add(cbDiscount);
 
         lblDiscountID = new JLabel("Discount ID Number (PWD/LRN/Senior) *:");
-        styleFormLabel(lblDiscountID, 40, 380);
+        lblDiscountID.setBounds(40, 450, 250, 20);
+        lblDiscountID.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblDiscountID.setForeground(TEXT_WHITE);
         lblDiscountID.setVisible(false);
         pnlForm.add(lblDiscountID);
 
         txtDiscountID = new RoundedTextField();
-        txtDiscountID.setBounds(40, 400, 365, 40);
+        txtDiscountID.setBounds(40, 470, 365, 40);
         txtDiscountID.setVisible(false);
         pnlForm.add(txtDiscountID);
 
@@ -504,11 +541,14 @@ public class PassengerDetailsFrame extends JPanel {
                     if (lblDiscountID != null) lblDiscountID.setVisible(hasDiscount);
                     if (txtDiscountID != null) txtDiscountID.setVisible(hasDiscount);
                 }
+                updateLivePricingTotal();
             }
         });
 
         JLabel lblSeatSelection = new JLabel("Aircraft Seat Assignment *:");
-        styleFormLabel(lblSeatSelection, 445, 380);
+        lblSeatSelection.setBounds(445, 380, 250, 20);
+        lblSeatSelection.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblSeatSelection.setForeground(TEXT_WHITE);
         pnlForm.add(lblSeatSelection);
         
         btnSeatMap = new ActionButton("SELECT SEAT", Color.WHITE, REFINED_NAVY);
@@ -582,6 +622,9 @@ public class PassengerDetailsFrame extends JPanel {
         chkInsurance.setIcon(unselectedIcon);
         chkInsurance.setSelectedIcon(selectedIcon);
         pnlForm.add(chkInsurance);
+        chkInsurance.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { updateLivePricingTotal(); }
+        });
 
         // --- ROW 7: ACTION BUTTONS (490) ---
         btnCancel = new ActionButton("CANCEL", Color.WHITE, Color.RED);
@@ -593,6 +636,28 @@ public class PassengerDetailsFrame extends JPanel {
         btnConfirm.setBounds(445, 520, 365, 45);
         btnConfirm.setEnabled(false);
         pnlForm.add(btnConfirm);
+        
+        JLayeredPane layeredPane = new JLayeredPane();
+        layeredPane.setBounds(585, 49, 6, 6);
+        pnlForm.add(layeredPane);
+
+        // Dynamic placeholders and input validation constraints configuration
+        txtFlightSearch.setPlaceholder("e.g. MNL-001");
+        ((RoundedTextField) txtPassengerCountInput).setPlaceholder("1");
+        ((RoundedTextField) txtPassengerCountInput).setConstraints(2, true);
+
+        ((RoundedTextField) txtName).setPlaceholder("e.g. Justin H. Tan");
+
+        ((RoundedTextField) txtAge).setPlaceholder("e.g. 25");
+        ((RoundedTextField) txtAge).setConstraints(3, true);
+
+        ((RoundedTextField) txtContact).setPlaceholder("e.g. 09171234567");
+        ((RoundedTextField) txtContact).setConstraints(11, true);
+
+        ((RoundedTextField) txtPassport).setPlaceholder("Format: YT000000C");
+        ((RoundedTextField) txtPassport).setConstraints(9, false);
+
+        ((RoundedTextField) txtDiscountID).setPlaceholder("e.g. Senior Citizen ID No.");
 
         // --- CORE RUNTIME ACTION CONTROLLERS ---
 
@@ -601,14 +666,20 @@ public class PassengerDetailsFrame extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 txtFlightSearch.setEnabled(true);
                 txtPassengerCountInput.setEnabled(true);
+                dateDeparture.setEnabled(true);
                 btnVerify.setEnabled(true);
                 btnChangeFlight.setEnabled(false);
                 btnConfirm.setEnabled(false);
                 isFlightVerified = false;
                 targetFlightData = null;
+                currentPassenger = 1;
+                totalPassengers = 1;
+                billingRecords.clear();
+                DataManager.bookedPassengers.clear();
+                btnConfirm.setText("CONFIRM & PROCEED");
                 lblFlightStatusCard.setBackground(SOFT_CARD_NAVY);
                 lblFlightStatusCard.setForeground(SUBTLE_GRAY);
-                lblFlightStatusCard.setText("Awaiting localized validation input segment...");
+                lblFlightStatusCard.setText("Awaiting verification...");
                 lblSummary.setText("Flight: None Selected | Base Price: Awaiting Verification");
             }
         });
@@ -625,7 +696,10 @@ public class PassengerDetailsFrame extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 int choice = JOptionPane.showConfirmDialog(PassengerDetailsFrame.this, "Discard progress and return to main interface?", "Cancel Operation", JOptionPane.YES_NO_OPTION);
-                if (choice == JOptionPane.YES_OPTION) { MainDashboardFrame.showCard("DASHBOARD"); }
+                if (choice == JOptionPane.YES_OPTION) { 
+                    startNewBookingSession();
+                    MainDashboardFrame.showCard("DASHBOARD"); 
+                }
             }
         });
 
@@ -647,6 +721,19 @@ public class PassengerDetailsFrame extends JPanel {
             @Override public void ancestorRemoved(javax.swing.event.AncestorEvent event) {}
             @Override public void ancestorMoved(javax.swing.event.AncestorEvent event) {}
         });
+
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                startNewBookingSession();
+            }
+        });
+
+        // Trigger dynamic layout positioning immediately at startup
+        cbFlightType.setSelectedItem("Domestic");
+        for (ActionListener al : cbFlightType.getActionListeners()) {
+            al.actionPerformed(new ActionEvent(cbFlightType, ActionEvent.ACTION_PERFORMED, null));
+        }
     }
 
     // ── Exit confirmation dialog ──────────────────────────────────────────────
@@ -673,6 +760,7 @@ public class PassengerDetailsFrame extends JPanel {
         btnYes.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) {
                 dialog.dispose();
+                startNewBookingSession();
                 MainDashboardFrame.showCard("WELCOME");
             }
         });
@@ -690,6 +778,10 @@ public class PassengerDetailsFrame extends JPanel {
         dialog.setVisible(true);
     }
 
+    public void triggerSessionStart() {
+        startNewBookingSession();
+    }
+
     private void startNewBookingSession() {
         currentPassenger = 1;
         totalPassengers = 1;
@@ -701,14 +793,21 @@ public class PassengerDetailsFrame extends JPanel {
         billingRecords.clear();
         btnConfirm.setText("CONFIRM & PROCEED");
         
-        txtPassengerCountInput.setText("1");
+        // Reset all inputs to their default active/enabled states
+        txtFlightSearch.setEnabled(true);
         txtPassengerCountInput.setEnabled(true);
+        dateDeparture.setEnabled(true);
+        btnVerify.setEnabled(true);
+        btnChangeFlight.setEnabled(false);
+        btnConfirm.setEnabled(false);
+        
+        txtPassengerCountInput.setText("1");
         txtFlightSearch.setText("");
         
         lblTitle.setText("PASSENGER DETAILS (Express Mode Entrance)");
         lblFlightStatusCard.setBackground(SOFT_CARD_NAVY);
         lblFlightStatusCard.setForeground(SUBTLE_GRAY);
-        lblFlightStatusCard.setText("Awaiting validation sequence input...");
+        lblFlightStatusCard.setText("Awaiting verification...");
         isFlightVerified = false;
         targetFlightData = null;
 
@@ -718,16 +817,23 @@ public class PassengerDetailsFrame extends JPanel {
             isFlightVerified = true;
             txtFlightSearch.setEnabled(false);
             txtPassengerCountInput.setEnabled(false);
+            if (targetFlightData[1] != null) {
+                try {
+                    java.util.Date fDate = new java.text.SimpleDateFormat("dd-MM-yy").parse(targetFlightData[1].toString());
+                    dateDeparture.setDate(fDate);
+                    dateDeparture.setEnabled(false);
+                } catch (Exception ex) {}
+            }
             if (this.btnVerify != null) this.btnVerify.setEnabled(false);
             if (this.btnChangeFlight != null) this.btnChangeFlight.setEnabled(true);
             if (this.btnConfirm != null) this.btnConfirm.setEnabled(true);
             
             lblFlightStatusCard.setBackground(new Color(34, 163, 102)); 
             lblFlightStatusCard.setForeground(Color.WHITE);
-            lblFlightStatusCard.setText(targetFlightData[0] + " | " + targetFlightData[2] + " \u2192 " + targetFlightData[3] + " | " + targetFlightData[5] + " | " + targetFlightData[6] + " base");
+            lblFlightStatusCard.setText(targetFlightData[0] + " | " + targetFlightData[2] + " \u2192 " + targetFlightData[3] + " | \u20B1" + targetFlightData[6]);
 
             lblTitle.setText("Passenger Registration & Booking (Passenger 1 of 1)");
-            lblSummary.setText("Flight ID: " + targetFlightData[0] + " | Destination: " + targetFlightData[1] + " | Base Fare: " + targetFlightData[2]);
+            updateLivePricingTotal();
 
             // Trigger passport field update based on flight type
             if (targetFlightData.length > 7) {
@@ -737,10 +843,17 @@ public class PassengerDetailsFrame extends JPanel {
                     cbFlightType.setSelectedItem("Domestic");
                 }
             }
+            
+            // Consume and clear the reference so subsequent custom/sidebar entries start fresh
+            DataManager.selectedFlightData = null;
         } else {
             lblSummary.setText("Flight: None Selected | Base Price: Awaiting Verification");
-            if (this.btnConfirm != null) this.btnConfirm.setEnabled(false);
-            if (this.btnChangeFlight != null) this.btnChangeFlight.setEnabled(false);
+            
+            // Force Domestic layout positioning by default
+            cbFlightType.setSelectedItem("Domestic");
+            for (ActionListener al : cbFlightType.getActionListeners()) {
+                al.actionPerformed(new ActionEvent(cbFlightType, ActionEvent.ACTION_PERFORMED, null));
+            }
         }
         revalidate();
         repaint();
@@ -750,12 +863,12 @@ public class PassengerDetailsFrame extends JPanel {
     private void handleSeatSelection() {
         boolean isInternational = targetFlightData != null
             && targetFlightData[0].toString().contains("INT");
-        boolean isBusinessMode  = cbClassType.getSelectedIndex() == 1;
-        Frame   owner           = (Frame) SwingUtilities.getWindowAncestor(this);
+        int classIndex = cbClassType.getSelectedIndex();
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
 
-        if (isInternational) {
-            InternationalSeatMapDialog dlg =
-                new InternationalSeatMapDialog(owner, isBusinessMode, selectedSeat);
+        if (classIndex == 2) {
+            FirstClassSeatMapDialog dlg =
+                new FirstClassSeatMapDialog(owner, isInternational, selectedSeat);
             dlg.setLocationRelativeTo(this);
             dlg.setVisible(true);
             String result = dlg.getSelectedSeat();
@@ -768,17 +881,34 @@ public class PassengerDetailsFrame extends JPanel {
                 }
             }
         } else {
-            DomesticSeatMapDialog dlg =
-                new DomesticSeatMapDialog(owner, isBusinessMode, selectedSeat);
-            dlg.setLocationRelativeTo(this);
-            dlg.setVisible(true);
-            String result = dlg.getSelectedSeat();
-            if (!result.equals("None")) {
-                selectedSeat = result;
-                if (cbTripType.getSelectedItem().toString().equals("Round Trip")) {
-                    lblSeatNo.setText("D: " + selectedSeat);
-                } else {
-                    lblSeatNo.setText("Seat: " + selectedSeat);
+            boolean isBusinessMode = classIndex == 1;
+            if (isInternational) {
+                InternationalSeatMapDialog dlg =
+                    new InternationalSeatMapDialog(owner, isBusinessMode, selectedSeat);
+                dlg.setLocationRelativeTo(this);
+                dlg.setVisible(true);
+                String result = dlg.getSelectedSeat();
+                if (!result.equals("None")) {
+                    selectedSeat = result;
+                    if (cbTripType.getSelectedItem().toString().equals("Round Trip")) {
+                        lblSeatNo.setText("D: " + selectedSeat);
+                    } else {
+                        lblSeatNo.setText("Seat: " + selectedSeat);
+                    }
+                }
+            } else {
+                DomesticSeatMapDialog dlg =
+                    new DomesticSeatMapDialog(owner, isBusinessMode, selectedSeat);
+                dlg.setLocationRelativeTo(this);
+                dlg.setVisible(true);
+                String result = dlg.getSelectedSeat();
+                if (!result.equals("None")) {
+                    selectedSeat = result;
+                    if (cbTripType.getSelectedItem().toString().equals("Round Trip")) {
+                        lblSeatNo.setText("D: " + selectedSeat);
+                    } else {
+                        lblSeatNo.setText("Seat: " + selectedSeat);
+                    }
                 }
             }
         }
@@ -787,12 +917,12 @@ public class PassengerDetailsFrame extends JPanel {
     private void handleReturnSeatSelection() {
         boolean isInternational = targetFlightData != null
             && targetFlightData[0].toString().contains("INT");
-        boolean isBusinessMode  = cbClassType.getSelectedIndex() == 1;
-        Frame   owner           = (Frame) SwingUtilities.getWindowAncestor(this);
+        int classIndex = cbClassType.getSelectedIndex();
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
 
-        if (isInternational) {
-            InternationalSeatMapDialog dlg =
-                new InternationalSeatMapDialog(owner, isBusinessMode, selectedReturnSeat);
+        if (classIndex == 2) {
+            FirstClassSeatMapDialog dlg =
+                new FirstClassSeatMapDialog(owner, isInternational, selectedReturnSeat);
             dlg.setLocationRelativeTo(this);
             dlg.setVisible(true);
             String result = dlg.getSelectedSeat();
@@ -801,14 +931,27 @@ public class PassengerDetailsFrame extends JPanel {
                 lblReturnSeatNo.setText("R: " + selectedReturnSeat);
             }
         } else {
-            DomesticSeatMapDialog dlg =
-                new DomesticSeatMapDialog(owner, isBusinessMode, selectedReturnSeat);
-            dlg.setLocationRelativeTo(this);
-            dlg.setVisible(true);
-            String result = dlg.getSelectedSeat();
-            if (!result.equals("None")) {
-                selectedReturnSeat = result;
-                lblReturnSeatNo.setText("R: " + selectedReturnSeat);
+            boolean isBusinessMode = classIndex == 1;
+            if (isInternational) {
+                InternationalSeatMapDialog dlg =
+                    new InternationalSeatMapDialog(owner, isBusinessMode, selectedReturnSeat);
+                dlg.setLocationRelativeTo(this);
+                dlg.setVisible(true);
+                String result = dlg.getSelectedSeat();
+                if (!result.equals("None")) {
+                    selectedReturnSeat = result;
+                    lblReturnSeatNo.setText("R: " + selectedReturnSeat);
+                }
+            } else {
+                DomesticSeatMapDialog dlg =
+                    new DomesticSeatMapDialog(owner, isBusinessMode, selectedReturnSeat);
+                dlg.setLocationRelativeTo(this);
+                dlg.setVisible(true);
+                String result = dlg.getSelectedSeat();
+                if (!result.equals("None")) {
+                    selectedReturnSeat = result;
+                    lblReturnSeatNo.setText("R: " + selectedReturnSeat);
+                }
             }
         }
     }
@@ -825,17 +968,28 @@ public class PassengerDetailsFrame extends JPanel {
             JOptionPane.showMessageDialog(this, "Please fulfill all required fields (Name, Age, Contact)!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (cbFlightType.getSelectedItem().toString().equals("International") && txtPassport.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Passport Number is required for International flights!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
-            return;
+        if (cbFlightType.getSelectedItem().toString().equals("International")) {
+            String passport = txtPassport.getText().trim();
+            if (passport.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Passport Number is required for International flights!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (!passport.matches("^[A-Z]{2}[0-9]{6}[A-Z]$")) {
+                JOptionPane.showMessageDialog(this, "Passport Number must match the format YT000000C (2 uppercase letters, 6 digits, 1 uppercase letter)!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
         }
         if (!cbDiscount.getSelectedItem().toString().equals("NONE") && txtDiscountID.getText().trim().isEmpty()) {
             JOptionPane.showMessageDialog(this, "Discount ID Number is required for the selected discount!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
+        if (dateDeparture.getDate() == null) {
+            JOptionPane.showMessageDialog(this, "Please select a Departure date!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         if (cbTripType.getSelectedItem().toString().equals("Round Trip")) {
-            if (dateDeparture.getDate() == null || dateReturn.getDate() == null) {
-                JOptionPane.showMessageDialog(this, "Please select both Departure and Return dates for a Round Trip!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
+            if (dateReturn.getDate() == null) {
+                JOptionPane.showMessageDialog(this, "Please select a Return date for a Round Trip!", "Input Validation Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             if (dateDeparture.getDate().after(dateReturn.getDate())) {
@@ -868,7 +1022,9 @@ public class PassengerDetailsFrame extends JPanel {
             } catch (Exception e) {}
         }
 
-        double classFee = cbClassType.getSelectedIndex() == 1 ? 4500 : 0;
+        double classFee = 0;
+        if (cbClassType.getSelectedIndex() == 1) classFee = 4500;
+        else if (cbClassType.getSelectedIndex() == 2) classFee = 9000;
         double insuranceFee = chkInsurance.isSelected() ? 350 : 0;
         
         double baggageFee = 0;
@@ -910,31 +1066,26 @@ public class PassengerDetailsFrame extends JPanel {
         );
         DataManager.bookedPassengers.add(newPassenger);
 
-        String newTxnId = "TXN-" + (10042 + DataManager.bookingRecords.size());
-        String routeStr = targetFlightData[2] + " -> " + targetFlightData[3];
-        DataManager.bookingRecords.add(new Object[]{
+        String newTxnId = "TXN-" + (10042 + DataManager.getBookingsDB().length);
+        DataManager.bookPassenger(
             newTxnId, 
             newPassenger.getName(), 
             targetFlightData[0].toString(), 
-            routeStr, 
             selectedSeat, 
-            String.valueOf((int)individualTotal), 
+            individualTotal, 
             "CONFIRMED"
-        });
+        );
 
         JOptionPane.showMessageDialog(this, "Operational details verified and logged for Passenger " + currentPassenger + "!");
 
         if (currentPassenger < totalPassengers) {
             currentPassenger++;
             lblTitle.setText("Passenger Registration & Booking (Passenger " + currentPassenger + " of " + totalPassengers + ")");
-            clearFields();
+            clearPassengerSpecificFields();
             selectedSeat = "None";
             lblSeatNo.setText("Seat: None");
-            cbClassType.setSelectedIndex(0);
-            cbBaggage.setSelectedIndex(0);
-            cbSpecialCargo.setSelectedIndex(0);
-            cbDiscount.setSelectedIndex(0);
-            chkInsurance.setSelected(false);
+            if (lblReturnSeatNo != null) lblReturnSeatNo.setText("R: None");
+            selectedReturnSeat = "None";
 
             if (currentPassenger == totalPassengers) {
                 btnConfirm.setText("PROCEED TO BILLING");
@@ -960,8 +1111,12 @@ public class PassengerDetailsFrame extends JPanel {
                 JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, 
                 null, paymentOptions, paymentOptions[0]);
                 
-            String selectedPayment = paymentChoice == -1 ? "Cash (Defaulted)" : paymentOptions[paymentChoice];
+            if (paymentChoice == -1) {
+                // If closed with 'X', halt processing and return to the form
+                return;
+            }
             
+            String selectedPayment = paymentOptions[paymentChoice];
             displayModernInvoice(grandTotal, selectedPayment);
         }
     }
@@ -1067,7 +1222,25 @@ public class PassengerDetailsFrame extends JPanel {
         btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnPrint.addActionListener(e -> {
             invoiceDialog.dispose();
-            JOptionPane.showMessageDialog(this, "Booking Successful! Flight Tickets Generated and Printed.");
+            
+            // Collect ticket details
+            String passengerName = txtName.getText().trim();
+            String flightId = targetFlightData[0].toString();
+            String origin = targetFlightData[2].toString();
+            String dest = targetFlightData[3].toString();
+            String cabinClass = cbClassType.getSelectedItem().toString();
+            
+            java.util.Date depDate = dateDeparture.getDate();
+            String depSeat = selectedSeat;
+            
+            boolean isRoundTrip = cbTripType.getSelectedItem().toString().equals("Round Trip");
+            java.util.Date retDate = isRoundTrip ? dateReturn.getDate() : null;
+            String retSeat = isRoundTrip ? selectedReturnSeat : null;
+            
+            Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+            TicketDialog ticketDlg = new TicketDialog(owner, passengerName, flightId, origin, dest, cabinClass, depDate, depSeat, isRoundTrip, retDate, retSeat);
+            ticketDlg.setVisible(true);
+            
             MainDashboardFrame.showCard("DASHBOARD");
         });
         
@@ -1079,9 +1252,10 @@ public class PassengerDetailsFrame extends JPanel {
     }
 
     private void styleFormLabel(JLabel label, int x, int y) {
-        label.setBounds(x, y, 250, 20);
         label.setFont(new Font("Segoe UI", Font.BOLD, 12));
         label.setForeground(new Color(180, 195, 220));
+        int w = Math.max(120, label.getPreferredSize().width + 10);
+        label.setBounds(x, y, w, 20);
     }
 
     private void clearFields() {
@@ -1092,9 +1266,23 @@ public class PassengerDetailsFrame extends JPanel {
         if (cbNationality != null) cbNationality.setSelectedIndex(0);
         if (cbTripType != null) cbTripType.setSelectedIndex(0);
         if (cbSpecialCargo != null) cbSpecialCargo.setSelectedIndex(0);
+        if (cbDiscount != null) cbDiscount.setSelectedIndex(0);
         if (txtDiscountID != null) txtDiscountID.setText("");
         if (dateDeparture != null) dateDeparture.setDate(null);
         if (dateReturn != null) dateReturn.setDate(null);
+    }
+
+    private void clearPassengerSpecificFields() {
+        txtName.setText("");
+        txtAge.setText("");
+        txtContact.setText("");
+        txtPassport.setText("");
+        if (cbNationality != null) cbNationality.setSelectedIndex(0);
+        if (cbSpecialCargo != null) cbSpecialCargo.setSelectedIndex(0);
+        if (txtDiscountID != null) txtDiscountID.setText("");
+        if (cbDiscount != null) cbDiscount.setSelectedIndex(0);
+        if (cbBaggage != null) cbBaggage.setSelectedIndex(0);
+        if (chkInsurance != null) chkInsurance.setSelected(false);
     }
 
     private <T> JComboBox<T> createStyledComboBox(T[] items, int x, int y, int w, int h) {
@@ -1162,6 +1350,122 @@ public class PassengerDetailsFrame extends JPanel {
         return cb;
     }
 
+    private void updateSuggestionsForSearch() {
+        SwingUtilities.invokeLater(() -> {
+            if (!txtFlightSearch.isEnabled() || suggestPopup == null) return;
+            String query = txtFlightSearch.getText().trim().toLowerCase();
+            suggestPopup.removeAll();
+            if (query.isEmpty() && (dateDeparture == null || dateDeparture.getDate() == null)) {
+                suggestPopup.setVisible(false);
+                return;
+            }
+            String selectedType = cbFlightType.getSelectedItem().toString().toLowerCase();
+            Object[][] db = DataManager.getFlightsDB();
+            int matchCount = 0;
+            for (Object[] row : db) {
+                String flightCategory = row[7].toString().toLowerCase();
+                if (!flightCategory.equals(selectedType)) {
+                    continue;
+                }
+                
+                String id = row[0].toString().toLowerCase();
+                String date = row[1].toString().toLowerCase();
+                String origin = row[2].toString().toLowerCase();
+                String dest = row[3].toString().toLowerCase();
+                
+                String searchCorpus = id + " " + dest + " " + date + " " + origin;
+                if (dest.equals("ceb") || origin.equals("ceb")) searchCorpus += " cebu";
+                if (dest.equals("mnl") || origin.equals("mnl")) searchCorpus += " manila";
+                if (dest.equals("dvo") || origin.equals("dvo")) searchCorpus += " davao";
+                if (dest.equals("pps") || origin.equals("pps")) searchCorpus += " puerto princesa";
+                if (dest.equals("mph") || origin.equals("mph")) searchCorpus += " caticlan boracay";
+                if (dest.equals("ilo") || origin.equals("ilo")) searchCorpus += " iloilo";
+                if (dest.equals("nrt") || origin.equals("nrt")) searchCorpus += " tokyo narita japan";
+                if (dest.equals("sin") || origin.equals("sin")) searchCorpus += " singapore";
+                if (dest.equals("lax") || origin.equals("lax")) searchCorpus += " los angeles usa";
+                if (dest.equals("lhr") || origin.equals("lhr")) searchCorpus += " london uk";
+
+                boolean matchesQuery = query.isEmpty() || searchCorpus.contains(query);
+                if (matchesQuery) {
+                    if (dateDeparture != null && dateDeparture.getDate() != null) {
+                        String selectedDateStr = new java.text.SimpleDateFormat("dd-MM-yy").format(dateDeparture.getDate());
+                        if (!date.equalsIgnoreCase(selectedDateStr)) {
+                            continue;
+                        }
+                    } else if (query.isEmpty()) {
+                        continue;
+                    }
+                    
+                    String fullOrigin = DataManager.getAirportFullName(row[2].toString());
+                    String fullDest = DataManager.getAirportFullName(row[3].toString());
+                    JMenuItem item = new JMenuItem(row[0] + " | " + fullOrigin + " -> " + fullDest + " | Time: " + row[4] + " | Price: " + row[6]);
+                    item.addActionListener(e -> {
+                        txtFlightSearch.setText(row[0].toString());
+                        suggestPopup.setVisible(false);
+                        if (btnVerify != null) btnVerify.doClick(); 
+                    });
+                    suggestPopup.add(item);
+                    matchCount++;
+                }
+            }
+            if (matchCount > 0) {
+                if (!suggestPopup.isVisible()) {
+                    suggestPopup.show(txtFlightSearch, 0, txtFlightSearch.getHeight());
+                } else {
+                    suggestPopup.pack(); 
+                }
+                txtFlightSearch.requestFocus();
+            } else {
+                suggestPopup.setVisible(false);
+            }
+        });
+    }
+
+    private void updateLivePricingTotal() {
+        if (!isFlightVerified || targetFlightData == null) {
+            lblSummary.setText("Flight: None Selected | Base Price: Awaiting Verification");
+            return;
+        }
+        
+        double baseFare = 2000;
+        try {
+            String rawPrice = targetFlightData[6].toString().replaceAll("[^0-9]", "");
+            baseFare = Double.parseDouble(rawPrice);
+        } catch (Exception e) {}
+
+        double classFee = 0;
+        if (cbClassType.getSelectedIndex() == 1) classFee = 4500;
+        else if (cbClassType.getSelectedIndex() == 2) classFee = 9000;
+        
+        double insuranceFee = chkInsurance.isSelected() ? 350 : 0;
+        
+        double baggageFee = 0;
+        int bagIndex = cbBaggage.getSelectedIndex();
+        if (bagIndex == 1) baggageFee = 550;
+        else if (bagIndex == 2) baggageFee = 950;
+        else if (bagIndex == 3) baggageFee = 1400;
+
+        double cargoFee = 0;
+        int cargoIndex = cbSpecialCargo.getSelectedIndex();
+        if (cargoIndex == 1) cargoFee = 15000;
+        else if (cargoIndex == 2) cargoFee = 3500;
+        else if (cargoIndex == 3) cargoFee = 1200;
+        else if (cargoIndex == 4) cargoFee = 2500;
+
+        double travelTax = 1620; 
+
+        double subtotalSubjectToDiscount = baseFare + classFee;
+        double discountAmount = 0;
+        String discType = cbDiscount.getSelectedItem().toString();
+        if (discType.startsWith("SENIOR") || discType.startsWith("PWD") || discType.startsWith("STUDENT")) {
+            discountAmount = subtotalSubjectToDiscount * 0.20;
+        }
+
+        double individualTotal = (subtotalSubjectToDiscount - discountAmount) + baggageFee + cargoFee + insuranceFee + travelTax;
+        
+        lblSummary.setText("Flight: " + targetFlightData[0] + " | Base: P" + baseFare + " | Cabin Class: P" + classFee + " | LIVE PASSENGER TOTAL: P" + String.format("%,.2f", individualTotal));
+    }
+
     private void handleVerifyAction() {
         String inputID = txtFlightSearch.getText().trim().toUpperCase();
         String rawCount = txtPassengerCountInput.getText().trim();
@@ -1183,21 +1487,27 @@ public class PassengerDetailsFrame extends JPanel {
         }
 
         boolean found = false;
-        for (Object[] flight : DataManager.getMockFlightsDB()) {
+        for (Object[] flight : DataManager.getFlightsDB()) {
             if (flight[0].toString().equalsIgnoreCase(inputID)) {
+                if (dateDeparture != null && dateDeparture.getDate() != null) {
+                    String selectedDateStr = new java.text.SimpleDateFormat("dd-MM-yy").format(dateDeparture.getDate());
+                    if (!flight[1].toString().equalsIgnoreCase(selectedDateStr)) {
+                        continue;
+                    }
+                }
                 found = true;
                 String status = flight[5].toString();
                 if (status.equals("FULL")) {
                     lblFlightStatusCard.setBackground(new Color(220, 40, 40));
                     lblFlightStatusCard.setForeground(Color.WHITE);
-                    lblFlightStatusCard.setText("REJECTED: Flight is completely FULL!");
+                    lblFlightStatusCard.setText("Flight completely FULL!");
                     isFlightVerified = false;
                     return;
                 }
                 if (status.equals("BOARDING")) {
                     lblFlightStatusCard.setBackground(DataManager.SUNSET_ORANGE);
                     lblFlightStatusCard.setForeground(Color.WHITE);
-                    lblFlightStatusCard.setText("LOCKED: Aircraft is actively BOARDING!");
+                    lblFlightStatusCard.setText("Aircraft actively BOARDING!");
                     isFlightVerified = false;
                     return;
                 }
@@ -1206,7 +1516,7 @@ public class PassengerDetailsFrame extends JPanel {
                     if (seatsAvail < totalPassengers) {
                         lblFlightStatusCard.setBackground(new Color(220, 40, 40));
                         lblFlightStatusCard.setForeground(Color.WHITE);
-                        lblFlightStatusCard.setText("REJECTED: Not enough seats (" + seatsAvail + " left)");
+                        lblFlightStatusCard.setText("Only " + seatsAvail + " seats left!");
                         isFlightVerified = false;
                         return;
                     }
@@ -1222,7 +1532,7 @@ public class PassengerDetailsFrame extends JPanel {
 
                 lblFlightStatusCard.setBackground(new Color(34, 163, 102));
                 lblFlightStatusCard.setForeground(Color.WHITE);
-                lblFlightStatusCard.setText(flight[0] + " | " + flight[2] + " \u2192 " + flight[3] + " | " + flight[5] + " | " + flight[6] + " base");
+                lblFlightStatusCard.setText(flight[0] + " | " + flight[2] + " \u2192 " + flight[3] + " | \u20B1" + flight[6]);
                 lblTitle.setText("Passenger Registration & Booking (" + currentPassenger + " of " + totalPassengers + ")");
                 lblSummary.setText("Flight ID: " + flight[0] + " | Destination: " + flight[3] + " | Base Fare: " + flight[6]);
 
@@ -1239,7 +1549,7 @@ public class PassengerDetailsFrame extends JPanel {
         if (!found) {
             lblFlightStatusCard.setBackground(new Color(220, 40, 40));
             lblFlightStatusCard.setForeground(Color.WHITE);
-            lblFlightStatusCard.setText("DENIED: Flight ID not found!");
+            lblFlightStatusCard.setText("Flight ID not found!");
             isFlightVerified = false;
             targetFlightData = null;
         }

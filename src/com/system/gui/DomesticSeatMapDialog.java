@@ -49,10 +49,19 @@ public class DomesticSeatMapDialog extends JDialog {
         this(null, false, "None");
     }
 
+    private java.util.ArrayList<String> occupiedSeats = new java.util.ArrayList<>();
+
     public DomesticSeatMapDialog(Frame owner, boolean isBusinessMode, String currentSeat) {
         super(owner, "Seats Availability Matrix", true);
         this.isBusinessMode = isBusinessMode;
         this.tempSelected[0] = currentSeat;
+        
+        // Fetch occupied seats dynamically from DataManager using active selected flight ID!
+        if (DataManager.selectedFlightData != null) {
+            String flightId = DataManager.selectedFlightData[0].toString();
+            this.occupiedSeats = DataManager.getOccupiedSeats(flightId);
+        }
+        
         initComponents();
         initSeatStyles();
     }
@@ -157,10 +166,6 @@ public class DomesticSeatMapDialog extends JDialog {
         s4C = new JButton(); pnlRow4.add(s4C);
         lblRow4 = new JLabel("4", SwingConstants.CENTER);
         lblRow4.setFont(new Font("Segoe UI Semibold", Font.BOLD, 12));
-        lblRow4.setOpaque(true);
-        lblRow4.setBackground(new Color(255, 245, 230));
-        lblRow4.setForeground(new Color(220, 110, 0));
-        lblRow4.setBorder(BorderFactory.createLineBorder(new Color(220, 110, 0), 1));
         pnlRow4.add(lblRow4);
         s4D = new JButton(); pnlRow4.add(s4D);
         s4E = new JButton(); pnlRow4.add(s4E);
@@ -175,10 +180,6 @@ public class DomesticSeatMapDialog extends JDialog {
         s5C = new JButton(); pnlRow5.add(s5C);
         lblRow5 = new JLabel("5", SwingConstants.CENTER);
         lblRow5.setFont(new Font("Segoe UI Semibold", Font.BOLD, 12));
-        lblRow5.setOpaque(true);
-        lblRow5.setBackground(new Color(255, 245, 230));
-        lblRow5.setForeground(new Color(220, 110, 0));
-        lblRow5.setBorder(BorderFactory.createLineBorder(new Color(220, 110, 0), 1));
         pnlRow5.add(lblRow5);
         s5D = new JButton(); pnlRow5.add(s5D);
         s5E = new JButton(); pnlRow5.add(s5E);
@@ -293,6 +294,25 @@ public class DomesticSeatMapDialog extends JDialog {
 
     private void configureSeat(JButton btn, final int row, final char col) {
         final String seatID = row + String.valueOf(col);
+        
+        int capacity = 48;
+        if (DataManager.selectedFlightData != null && DataManager.selectedFlightData.length > 10) {
+            try {
+                capacity = Integer.parseInt(DataManager.selectedFlightData[10].toString());
+            } catch (Exception ex) {}
+        }
+        
+        int colIndex = col - 'A';
+        int linearIndex = (row - 1) * 6 + colIndex + 1;
+        boolean outOfCapacity = linearIndex > capacity;
+
+        if (outOfCapacity) {
+            btn.setVisible(false);
+            return;
+        } else {
+            btn.setVisible(true);
+        }
+
         boolean occupied    = isOccupied(row, col);
         boolean isBizSeat   = (row <= 2);
         boolean wrongClass  = (isBusinessMode && !isBizSeat) || (!isBusinessMode && isBizSeat);
@@ -341,8 +361,9 @@ public class DomesticSeatMapDialog extends JDialog {
     }
 
     private boolean isOccupied(int row, char col) {
-        return (row <= 5 && (col == 'A' || col == 'B'))
-            || (row >= 6 && (col == 'D' || col == 'E' || col == 'F'));
+        String seatId1 = row + String.valueOf(col);
+        String seatId2 = String.format("%02d%c", row, col);
+        return occupiedSeats.contains(seatId1.toUpperCase()) || occupiedSeats.contains(seatId2.toUpperCase());
     }
 
     private void addLegendItem(JPanel parent, String text, Color color, boolean filled) {

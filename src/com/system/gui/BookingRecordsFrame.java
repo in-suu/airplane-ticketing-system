@@ -34,6 +34,7 @@ public class BookingRecordsFrame extends JPanel {
     private JPanel pnlAnalyticsStrip;
     private ActionButton btnCancelBooking;
     private ActionButton btnViewReceipt;
+    private ActionButton btnViewTicket;
     private ActionButton btnBackDashboard;
 
     private int hoveredRow = -1;
@@ -245,7 +246,7 @@ public class BookingRecordsFrame extends JPanel {
         pnlAnalyticsStrip.add(lblTotalRevenue);
 
         // ── Bottom buttons ────────────────────────────────────────────────────
-        int btnWidth = (890 - 120) / 3; // = 256
+        int btnWidth = (890 - 140) / 4; // = 187px each
         btnCancelBooking = new ActionButton("CANCEL", Color.WHITE, Color.RED);
         btnCancelBooking.setBounds(40, 595, btnWidth, 45); // Design-time bounds
         btnCancelBooking.setBorder(new LineBorder(new Color(230, 220, 220), 1));
@@ -256,8 +257,13 @@ public class BookingRecordsFrame extends JPanel {
         btnViewReceipt.setBorder(new LineBorder(new Color(210, 220, 235), 1));
         pnlMain.add(btnViewReceipt);
 
-        btnBackDashboard = new ActionButton("RETURN TO DASHBOARD", DataManager.SUNSET_ORANGE, Color.WHITE);
-        btnBackDashboard.setBounds(40 + (btnWidth * 2) + 40, 595, btnWidth, 45);
+        btnViewTicket = new ActionButton("VIEW TICKET", DataManager.SUNSET_ORANGE, Color.WHITE);
+        btnViewTicket.setBounds(40 + (btnWidth * 2) + 40, 595, btnWidth, 45);
+        btnViewTicket.setBorder(new LineBorder(new Color(210, 220, 235), 1));
+        pnlMain.add(btnViewTicket);
+
+        btnBackDashboard = new ActionButton("RETURN TO DASHBOARD", REFINED_NAVY, Color.WHITE);
+        btnBackDashboard.setBounds(40 + (btnWidth * 3) + 60, 595, btnWidth, 45);
         pnlMain.add(btnBackDashboard);
 
         // ── Dynamic resize listener on pnlMainBackground ──────────────────────
@@ -282,10 +288,11 @@ public class BookingRecordsFrame extends JPanel {
                 pnlAnalyticsStrip.setBounds(40, ph - 130, pw - 80, 40);
                 lblTotalRevenue.setBounds(20, 0, pw - 40, 40);
 
-                int bw = (pw - 120) / 3;
+                int bw = (pw - 140) / 4;
                 btnCancelBooking.setBounds(40, ph - 80, bw, 45);
                 btnViewReceipt.setBounds(40 + bw + 20, ph - 80, bw, 45);
-                btnBackDashboard.setBounds(40 + (bw * 2) + 40, ph - 80, bw, 45);
+                btnViewTicket.setBounds(40 + (bw * 2) + 40, ph - 80, bw, 45);
+                btnBackDashboard.setBounds(40 + (bw * 3) + 60, ph - 80, bw, 45);
             }
         });
 
@@ -340,12 +347,7 @@ public class BookingRecordsFrame extends JPanel {
                 if (confirm == JOptionPane.YES_OPTION) {
                     tblRecords.setValueAt("CANCELLED", selectedRow, 6);
                     String refId = tblRecords.getValueAt(selectedRow, 0).toString();
-                    for (Object[] record : DataManager.bookingRecords) {
-                        if (record[0].toString().equals(refId)) {
-                            record[6] = "CANCELLED";
-                            break;
-                        }
-                    }
+                    DataManager.cancelBooking(refId);
                     calculateRevenueSummary();
                 }
             }
@@ -368,6 +370,61 @@ public class BookingRecordsFrame extends JPanel {
                 String price = tblRecords.getValueAt(selectedRow, 5).toString();
                 String status = tblRecords.getValueAt(selectedRow, 6).toString();
                 openDigitalReceiptModal(refId, name, flightId, route, seat, price, status);
+            }
+        });
+
+        btnViewTicket.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int selectedRow = tblRecords.getSelectedRow();
+                if (selectedRow == -1) {
+                    JOptionPane.showMessageDialog(BookingRecordsFrame.this, "Please select a passenger row first!",
+                            "No Record Selected", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                String name = tblRecords.getValueAt(selectedRow, 1).toString();
+                String flightId = tblRecords.getValueAt(selectedRow, 2).toString();
+                String route = tblRecords.getValueAt(selectedRow, 3).toString();
+                String seat = tblRecords.getValueAt(selectedRow, 4).toString();
+                
+                // Parse origin and destination (Format: "MNL -> CEB" or "MNL → CEB")
+                String origin = "MNL";
+                String dest = "CEB";
+                if (route.contains("->")) {
+                    String[] parts = route.split("->");
+                    origin = parts[0].trim();
+                    dest = parts[1].trim();
+                } else if (route.contains("\u2192")) {
+                    String[] parts = route.split("\u2192");
+                    origin = parts[0].trim();
+                    dest = parts[1].trim();
+                }
+                
+                // Resolve cabin class based on premium seat configuration
+                String cabinClass = "ECONOMY CLASS [BASE]";
+                if (seat.matches("^[1-2][ADF]$")) {
+                    cabinClass = "FIRST CLASS (+P9,000)";
+                } else if (seat.startsWith("1") || seat.startsWith("2")) {
+                    cabinClass = "BUSINESS CLASS (+P4,500)";
+                }
+                
+                // Lookup confirmed Departure Date from Target Flight
+                java.util.Date depDate = new java.util.Date();
+                for (Object[] f : DataManager.getFlightsDB()) {
+                    if (f[0].toString().equalsIgnoreCase(flightId)) {
+                        try {
+                            depDate = new java.text.SimpleDateFormat("dd-MM-yy").parse(f[1].toString());
+                        } catch (Exception ex) {}
+                        break;
+                    }
+                }
+                
+                // Launch custom Boarding Pass TicketDialog centered on owner
+                Window owner = SwingUtilities.getWindowAncestor(BookingRecordsFrame.this);
+                Frame frame = (owner instanceof Frame) ? (Frame) owner : null;
+                TicketDialog tDlg = new TicketDialog(frame, name, flightId, origin, dest, cabinClass, depDate, seat, false, null, null);
+                tDlg.setVisible(true);
             }
         });
     }
@@ -505,44 +562,55 @@ public class BookingRecordsFrame extends JPanel {
         tableModel.setRowCount(0);
         String keyword = txtSearch.getText().trim().toLowerCase();
 
-        for (Object[] row : DataManager.getMockRecordsDB()) {
+        for (Object[] row : DataManager.getBookingsDB()) {
             String passenger = row[1].toString().toLowerCase();
             String txnID = row[0].toString().toLowerCase();
             String flightId = row[2].toString().toLowerCase();
-            String route = row[3].toString().toLowerCase();
+            String routeVal = row[3].toString();
+            String fullRoute = routeVal;
+            
+            if (routeVal.contains("->")) {
+                String[] parts = routeVal.split("->");
+                fullRoute = DataManager.getAirportFullName(parts[0].trim()) + " -> " + DataManager.getAirportFullName(parts[1].trim());
+            } else if (routeVal.contains("\u2192")) {
+                String[] parts = routeVal.split("\u2192");
+                fullRoute = DataManager.getAirportFullName(parts[0].trim()) + " -> " + DataManager.getAirportFullName(parts[1].trim());
+            }
 
             String flightDate = "";
-            for (Object[] f : DataManager.getMockFlightsDB()) {
+            for (Object[] f : DataManager.getFlightsDB()) {
                 if (f[0].toString().equalsIgnoreCase(flightId)) {
                     flightDate = f[1].toString().toLowerCase();
                     break;
                 }
             }
 
-            String corpus = passenger + " " + txnID + " " + flightId + " " + route + " " + flightDate;
-            if (route.contains("ceb"))
+            String corpus = passenger + " " + txnID + " " + flightId + " " + fullRoute.toLowerCase() + " " + flightDate;
+            if (fullRoute.toLowerCase().contains("cebu"))
                 corpus += " cebu";
-            if (route.contains("mnl"))
+            if (fullRoute.toLowerCase().contains("manila"))
                 corpus += " manila";
-            if (route.contains("dvo"))
+            if (fullRoute.toLowerCase().contains("davao"))
                 corpus += " davao";
-            if (route.contains("pps"))
+            if (fullRoute.toLowerCase().contains("puerto"))
                 corpus += " puerto princesa";
-            if (route.contains("mph"))
+            if (fullRoute.toLowerCase().contains("boracay"))
                 corpus += " caticlan boracay";
-            if (route.contains("ilo"))
+            if (fullRoute.toLowerCase().contains("iloilo"))
                 corpus += " iloilo";
-            if (route.contains("nrt"))
+            if (fullRoute.toLowerCase().contains("tokyo"))
                 corpus += " tokyo narita japan";
-            if (route.contains("sin"))
+            if (fullRoute.toLowerCase().contains("singapore"))
                 corpus += " singapore";
-            if (route.contains("lax"))
+            if (fullRoute.toLowerCase().contains("los"))
                 corpus += " los angeles usa";
-            if (route.contains("lhr"))
+            if (fullRoute.toLowerCase().contains("london"))
                 corpus += " london uk";
 
             if (keyword.isEmpty() || corpus.contains(keyword)) {
-                tableModel.addRow(row);
+                tableModel.addRow(new Object[]{
+                    row[0], row[1], row[2], fullRoute, row[4], row[5], row[6]
+                });
             }
         }
         calculateRevenueSummary();

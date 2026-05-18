@@ -67,6 +67,11 @@ public class MainDashboardFrame extends JFrame {
     public static void showCard(String cardName) {
         if (cardLayout != null && cardPanel != null) {
             cardLayout.show(cardPanel, cardName);
+            for (Component comp : cardPanel.getComponents()) {
+                if (comp instanceof PassengerDetailsFrame && cardName.equals("PASSENGER_DETAILS")) {
+                    ((PassengerDetailsFrame) comp).triggerSessionStart();
+                }
+            }
         }
     }
 
