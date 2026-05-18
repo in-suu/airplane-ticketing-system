@@ -45,6 +45,7 @@ public class PassengerDetailsFrame extends JPanel {
     private String selectedReturnSeat = "None";
     
     private List<String> billingRecords = new ArrayList<>();
+    private List<Object[]> pendingBookings = new ArrayList<>();
 
     private final Color REFINED_NAVY = new Color(30, 45, 75); 
     private final Color SOFT_CARD_NAVY = new Color(42, 62, 102);
@@ -633,8 +634,8 @@ public class PassengerDetailsFrame extends JPanel {
         pnlForm.add(btnCancel);
 
         btnConfirm = new ActionButton("CONFIRM & PROCEED", DataManager.SUNSET_ORANGE, Color.WHITE);
+        btnConfirm.setBackground(new Color(30, 45, 75));
         btnConfirm.setBounds(445, 520, 365, 45);
-        btnConfirm.setEnabled(false);
         pnlForm.add(btnConfirm);
         
         JLayeredPane layeredPane = new JLayeredPane();
@@ -791,6 +792,7 @@ public class PassengerDetailsFrame extends JPanel {
         if (lblReturnSeatNo != null) lblReturnSeatNo.setText("R: None");
         clearFields();
         billingRecords.clear();
+        pendingBookings.clear();
         btnConfirm.setText("CONFIRM & PROCEED");
         
         // Reset all inputs to their default active/enabled states
@@ -1059,22 +1061,26 @@ public class PassengerDetailsFrame extends JPanel {
                                   "  - Emergency Travel Insurance: P" + insuranceFee + "\n" +
                                   "  - Mandatory Required Travel Tax: P" + travelTax + "\n" +
                                   "  * Total Balance due for Passenger: P" + individualTotal + "\n\n";
-        billingRecords.add(passengerSummary);
 
         com.system.models.Passenger newPassenger = new com.system.models.Passenger(
             txtName.getText().trim(), txtContact.getText().trim(), txtPassport.getText().trim(), age
         );
-        DataManager.bookedPassengers.add(newPassenger);
 
-        String newTxnId = "TXN-" + (10042 + DataManager.getBookingsDB().length);
-        DataManager.bookPassenger(
-            newTxnId, 
-            newPassenger.getName(), 
-            targetFlightData[0].toString(), 
-            selectedSeat, 
-            individualTotal, 
+        Object[] pending = new Object[] {
+            newPassenger,
+            targetFlightData[0].toString(),
+            selectedSeat,
+            individualTotal,
             "CONFIRMED"
-        );
+        };
+        
+        if (pendingBookings.size() >= currentPassenger) {
+            pendingBookings.set(currentPassenger - 1, pending);
+            billingRecords.set(currentPassenger - 1, passengerSummary);
+        } else {
+            pendingBookings.add(pending);
+            billingRecords.add(passengerSummary);
+        }
 
         JOptionPane.showMessageDialog(this, "Operational details verified and logged for Passenger " + currentPassenger + "!");
 
@@ -1222,6 +1228,20 @@ public class PassengerDetailsFrame extends JPanel {
         btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnPrint.addActionListener(e -> {
             invoiceDialog.dispose();
+            
+            for (Object[] p : pendingBookings) {
+                com.system.models.Passenger pass = (com.system.models.Passenger) p[0];
+                DataManager.bookedPassengers.add(pass);
+                String newTxnId = "TXN-" + (10042 + DataManager.getBookingsDB().length);
+                DataManager.bookPassenger(
+                    newTxnId, 
+                    pass.getName(), 
+                    p[1].toString(), 
+                    p[2].toString(), 
+                    (Double) p[3], 
+                    p[4].toString()
+                );
+            }
             
             // Collect ticket details
             String passengerName = txtName.getText().trim();
@@ -1497,6 +1517,16 @@ public class PassengerDetailsFrame extends JPanel {
                 }
                 found = true;
                 String status = flight[5].toString();
+                if (status.toUpperCase().contains("CANCEL")) {
+                    lblFlightStatusCard.setBackground(new Color(220, 40, 40));
+                    lblFlightStatusCard.setForeground(Color.WHITE);
+                    lblFlightStatusCard.setText("Flight is CANCELLED!");
+                    isFlightVerified = false;
+                    JOptionPane.showMessageDialog(this,
+                        "<html><font color='red'><b>Flight Cancelled:</b></font><br>This flight has been cancelled.</html>",
+                        "Booking Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 if (status.equals("FULL")) {
                     lblFlightStatusCard.setBackground(new Color(220, 40, 40));
                     lblFlightStatusCard.setForeground(Color.WHITE);

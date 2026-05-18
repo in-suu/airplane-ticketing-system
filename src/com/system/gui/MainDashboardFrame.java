@@ -12,6 +12,8 @@ public class MainDashboardFrame extends JFrame {
 
     private static final long serialVersionUID = 1L;
 
+    private static MainDashboardFrame instance;
+
     // ── Static card-router (set during initComponents) ──────────────────────
     private static CardLayout cardLayout;
     private static JPanel     cardPanel;
@@ -67,6 +69,9 @@ public class MainDashboardFrame extends JFrame {
     public static void showCard(String cardName) {
         if (cardLayout != null && cardPanel != null) {
             cardLayout.show(cardPanel, cardName);
+            if (cardName.equals("DASHBOARD") && instance != null) {
+                instance.updateDashboardStats();
+            }
             for (Component comp : cardPanel.getComponents()) {
                 if (comp instanceof PassengerDetailsFrame && cardName.equals("PASSENGER_DETAILS")) {
                     ((PassengerDetailsFrame) comp).triggerSessionStart();
@@ -77,6 +82,7 @@ public class MainDashboardFrame extends JFrame {
 
     // ── Constructor ──────────────────────────────────────────────────────────
     public MainDashboardFrame() {
+        instance = this;
         initComponents();
     }
 
@@ -186,7 +192,13 @@ public class MainDashboardFrame extends JFrame {
         statTodayBookings.setBounds(341, 110, 286, 110);
         pnlMain.add(statTodayBookings);
 
-        statSystemStatus = new ModernStatCard("SYSTEM STATUS", "NORMAL");
+        int initialDelayed = 0;
+        for (Object[] f : com.system.models.DataManager.getFlightsDB()) {
+            if (f[5].toString().toUpperCase().contains("DELAY")) {
+                initialDelayed++;
+            }
+        }
+        statSystemStatus = new ModernStatCard("DELAYED FLIGHTS", String.valueOf(initialDelayed));
         statSystemStatus.setBounds(642, 110, 286, 110);
         pnlMain.add(statSystemStatus);
 
@@ -322,5 +334,17 @@ public class MainDashboardFrame extends JFrame {
 
         dialog.add(pnlDialog);
         dialog.setVisible(true);
+    }
+
+    public void updateDashboardStats() {
+        int delayedCount = 0;
+        for (Object[] f : com.system.models.DataManager.getFlightsDB()) {
+            if (f[5].toString().toUpperCase().contains("DELAY")) {
+                delayedCount++;
+            }
+        }
+        if (statSystemStatus != null) {
+            statSystemStatus.setValue(String.valueOf(delayedCount));
+        }
     }
 }

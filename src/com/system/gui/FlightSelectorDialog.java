@@ -270,10 +270,10 @@ public class FlightSelectorDialog extends JDialog {
 
             // Status Filter
             if (!statusFilter.equals("ALL STATUSES")) {
-                if (statusFilter.equals("AVAILABLE") && !status.equalsIgnoreCase("AVAILABLE")) continue;
-                if (statusFilter.equals("DELAYED") && !status.equalsIgnoreCase("DELAYED")) continue;
-                if (statusFilter.equals("CANCELLED") && !status.equalsIgnoreCase("CANCELLED")) continue;
-                if (statusFilter.equals("FULLY BOOKED") && !status.equalsIgnoreCase("FULL")) continue;
+                if (statusFilter.equals("AVAILABLE") && !status.toUpperCase().contains("AVAILABLE")) continue;
+                if (statusFilter.equals("DELAYED") && !status.toUpperCase().contains("DELAY")) continue;
+                if (statusFilter.equals("CANCELLED") && !status.toUpperCase().contains("CANCEL")) continue;
+                if (statusFilter.equals("FULLY BOOKED") && !status.toUpperCase().contains("FULL")) continue;
             }
 
             // Date Filter

@@ -34,6 +34,12 @@ public class ModernStatCard extends JPanel {
         add(lblValue);
     }
 
+    public void setValue(String value) {
+        if (lblValue != null) {
+            lblValue.setText(value);
+        }
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
